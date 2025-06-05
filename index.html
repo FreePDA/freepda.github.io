@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FreePDA — Мобильный разработчик</title>
   <style>
     body {
@@ -10,57 +10,105 @@
       font-family: Arial, sans-serif;
       background: #f4f4f4;
       color: #333;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    .card {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       padding: 2rem;
-      max-width: 600px;
-      width: 90%;
     }
 
-    h1 {
-      font-size: 1.8rem;
+    .container {
+      max-width: 900px;
+      margin: auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
       margin-bottom: 0.5rem;
     }
 
-    p {
-      margin: 0.5rem 0;
+    .contact {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 0.95rem;
     }
 
-    a {
-      color: #0077cc;
+    .game-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .game-card h2 {
+      margin-top: 0;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 1rem;
+    }
+
+    .buttons a {
       text-decoration: none;
+      background: #0077cc;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: background 0.2s ease;
     }
 
-    a:hover {
-      text-decoration: underline;
+    .buttons a:hover {
+      background: #005fa3;
     }
 
     .footer {
-      margin-top: 2rem;
+      text-align: center;
+      margin-top: 3rem;
       font-size: 0.9rem;
       color: #888;
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Pakamestau Dzmitry</h1>
-    <p><strong>Компания:</strong> FreePDA</p>
-    <p><strong>Email:</strong> <a href="mailto:pdasoul@gmail.com">pdasoul@gmail.com</a></p>
-    <p><strong>Адрес:</strong> Volkova str., 1, Kalinkovichi, Belarus</p>
-    <p><strong>Приложение:</strong> 
-      <a href="https://play.google.com/store/apps/details?id=com.chess.master3d" target="_blank">
-        Chess Master 3D на Google Play
-      </a>
-    </p>
+  <div class="container">
+    <header>
+      <h1>Pakamestau Dzmitry</h1>
+      <div class="contact">
+        <p><strong>Компания:</strong> FreePDA</p>
+        <p><strong>Email:</strong> <a href="mailto:pdasoul@gmail.com">pdasoul@gmail.com</a></p>
+        <p><strong>Адрес:</strong> Volkova 1, Kalinkovichi, Belarus</p>
+      </div>
+    </header>
+
+    <!-- 🕹️ Игра: Шахматный Мастер -->
+    <div class="game-card">
+      <h2>Шахматный Мастер 3D</h2>
+      <div class="buttons">
+        <a href="https://play.google.com/store/apps/details?id=com.chess.master3d" target="_blank">Google Play</a>
+        <a href="https://apps.apple.com/app/id123456789" target="_blank">App Store</a>
+        <a href="https://yandex.ru/games/app/12345" target="_blank">Yandex Games</a>
+        <a href="https://www.crazygames.com/game/chess-master-3d" target="_blank">CrazyGames</a>
+      </div>
+    </div>
+
+    <!-- 🎯 Добавьте ещё игры по шаблону ниже -->
+    <!--
+    <div class="game-card">
+      <h2>Название игры</h2>
+      <div class="buttons">
+        <a href="#" target="_blank">Google Play</a>
+        <a href="#" target="_blank">App Store</a>
+        <a href="#" target="_blank">Yandex Games</a>
+        <a href="#" target="_blank">CrazyGames</a>
+      </div>
+    </div>
+    -->
 
     <div class="footer">
       © 2025 FreePDA
