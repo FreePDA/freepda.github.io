@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Конвертер в BYN (курс НБРБ)</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; padding: 24px; background: #f6f7fb; }
+    .card { max-width: 820px; margin: 0 auto; background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 8px 30px rgba(0,0,0,.08); }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .row { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+    label { display: block; font-size: 12px; color: #444; margin-bottom: 6px; }
+    input, select { width: 100%; padding: 10px 12px; border: 1px solid #d7dbe7; border-radius: 10px; font-size: 14px; outline: none; }
+    input:focus, select:focus { border-color: #7c8cff; box-shadow: 0 0 0 3px rgba(124,140,255,.15); }
+    .full { grid-column: 1 / -1; }
+    .result { margin-top: 14px; padding: 12px; border-radius: 12px; background: #f0f4ff; }
+    .big { font-size: 20px; font-weight: 700; margin-top: 4px; }
+    .muted { color: #555; font-size: 12px; margin-top: 6px; line-height: 1.35; }
+    .err { background: #fff1f1; }
+    .actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+    button { padding: 10px 12px; border: 1px solid #d7dbe7; background: #fff; border-radius: 10px; cursor: pointer; font-size: 14px; }
+    button:hover { box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+    button.primary { border-color: #7c8cff; }
+    button.danger { border-color: #ff8b8b; }
+    .log { margin-top: 14px; }
+    .log h2 { font-size: 14px; margin: 0 0 8px; }
+    textarea { width: 100%; min-height: 180px; padding: 10px 12px; border: 1px solid #d7dbe7; border-radius: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; }
+    .footer { margin-top: 10px; font-size: 12px; color: #666; }
+    @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Конвертер в BYN по курсу НБРБ</h1>
+
+    <div class="row">
+      <div>
+        <label for="date">Дата курса</label>
+        <input id="date" type="date" />
+      </div>
+
+      <div>
+        <label for="currency">Валюта</label>
+        <select id="currency"></select>
+      </div>
+
+      <div class="full">
+        <label for="amount">Сумма в выбранной валюте</label>
+        <input id="amount" type="number" inputmode="decimal" min="0" step="0.01" value="100" />
+      </div>
+    </div>
+
+    <div id="box" class="result">
+      <div id="line1">—</div>
+      <div id="line2" class="big">—</div>
+      <div id="line3" class="muted">—</div>
+    </div>
+
+    <div class="actions">
+      <button id="saveBtn" class="primary" type="button">Сохранить</button>
+      <button id="downloadBtn" type="button">Скачать CSV</button>
+      <button id="clearBtn" class="danger" type="button">Очистить журнал</button>
+    </div>
+
+    <div class="log">
+      <h2>Журнал (по строкам: дата,валюта,сумма,сумма_в_BYN)</h2>
+      <textarea id="logArea" readonly></textarea>
+    </div>
+
+    <div class="footer">
+      Источник курсов: API НБРБ (официальные курсы).
+    </div>
+  </div>
+
+<script>
+  const elDate = document.getElementById('date');
+  const elCur = document.getElementById('currency');
+  const elAmt = document.getElementById('amount');
+
+  const box = document.getElementById('box');
+  const line1 = document.getElementById('line1');
+  const line2 = document.getElementById('line2');
+  const line3 = document.getElementById('line3');
+
+  const saveBtn = document.getElementById('saveBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const logArea = document.getElementById('logArea');
+
+  const STORAGE_KEY = 'nbrb_converter_log_v1';
+
+  // Текущее вычисленное состояние (чтобы "Сохранить" писало именно рассчитанные значения)
+  let current = {
+    date: null,
+    iso: null,
+    amount: null,
+    byn: null,
+    // курс для справки
+    scale: null,
+    official: null
+  };
+
+  const fmtNum = (n, digits = 6) => {
+    if (!Number.isFinite(n)) return '';
+    return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: digits }).format(n);
+  };
+
+  const fmtMoneyBYN = (n) => {
+    if (!Number.isFinite(n)) return '—';
+    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'BYN' }).format(n);
+  };
+
+  // Для CSV лучше использовать точку как десятичный разделитель
+  const toCsvNumber = (n) => {
+    if (!Number.isFinite(n)) return '';
+    // 6 знаков после запятой достаточно для курсов/пересчёта
+    return n.toFixed(6).replace(/\.?0+$/, (m) => m === '.' ? '' : '');
+  };
+
+  function setError(msg) {
+    box.classList.add('err');
+    line1.textContent = 'Ошибка';
+    line2.textContent = msg;
+    line3.textContent = 'Проверь дату/валюту и попробуй ещё раз.';
+    // сброс текущего результата, чтобы не сохранить старое
+    current.byn = null;
+  }
+
+  function setOk() {
+    box.classList.remove('err');
+  }
+
+  function initDateToday() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    elDate.value = `${yyyy}-${mm}-${dd}`;
+  }
+
+  async function loadCurrencies() {
+    const res = await fetch('https://api.nbrb.by/exrates/currencies');
+    if (!res.ok) throw new Error('Не удалось загрузить список валют');
+    const all = await res.json();
+
+    const list = all
+      .filter(x => x.Cur_Abbreviation && x.Cur_Name)
+      .sort((a,b) => (a.Cur_Abbreviation > b.Cur_Abbreviation ? 1 : -1));
+
+    elCur.innerHTML = '';
+    for (const c of list) {
+      const opt = document.createElement('option');
+      opt.value = c.Cur_Abbreviation;
+      opt.textContent = `${c.Cur_Abbreviation} — ${c.Cur_Name}`;
+      elCur.appendChild(opt);
+    }
+
+    const prefer = ['USD','EUR','RUB','PLN','CNY'];
+    const found = prefer.find(code => [...elCur.options].some(o => o.value === code));
+    if (found) elCur.value = found;
+
+    return list;
+  }
+
+  async function loadRate(isoCode, onDate) {
+    const url = `https://api.nbrb.by/exrates/rates/${encodeURIComponent(isoCode)}?ondate=${encodeURIComponent(onDate)}&parammode=2`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Курс для ${isoCode} на ${onDate} не найден`);
+    return await res.json();
+  }
+
+  async function recalc() {
+    const onDate = elDate.value;
+    const iso = elCur.value;
+    const amount = Number(String(elAmt.value).replace(',', '.'));
+
+    current.date = onDate;
+    current.iso = iso;
+    current.amount = amount;
+
+    if (!onDate || !iso || !Number.isFinite(amount)) {
+      setError('Заполни дату, валюту и сумму.');
+      return;
+    }
+
+    try {
+      setOk();
+      line1.textContent = 'Загрузка курса…';
+      line2.textContent = '—';
+      line3.textContent = '';
+
+      const rate = await loadRate(iso, onDate);
+      const scale = Number(rate.Cur_Scale);
+      const official = Number(rate.Cur_OfficialRate);
+
+      if (!Number.isFinite(scale) || !Number.isFinite(official) || scale === 0) {
+        throw new Error('Некорректные данные курса');
+      }
+
+      const byn = amount * official / scale;
+
+      current.byn = byn;
+      current.scale = scale;
+      current.official = official;
+
+      line1.textContent = `${fmtNum(amount)} ${iso} →`;
+      line2.textContent = fmtMoneyBYN(byn);
+      line3.textContent =
+        `Курс НБРБ на ${onDate}: ${fmtNum(official)} BYN за ${scale} ${iso} (1 ${iso} = ${fmtNum(official/scale)} BYN).`;
+    } catch (e) {
+      setError(e?.message || 'Не удалось посчитать');
+    }
+  }
+
+  function readLog() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch {
+      return [];
+    }
+  }
+
+  function writeLog(rows) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    renderLog(rows);
+  }
+
+  function renderLog(rows) {
+    // Каждая строка уже в формате CSV без заголовка
+    logArea.value = rows.join('\n');
+  }
+
+  function appendCurrentToLog() {
+    if (!current.date || !current.iso || !Number.isFinite(current.amount) || !Number.isFinite(current.byn)) {
+      setError('Нечего сохранять: сначала дождись расчёта.');
+      return;
+    }
+
+    // Формат: дата,валюта,сумма,сумма_в_BYN
+    // Числа — с точкой, чтобы CSV легко открывался
+    const row = `${current.date},${current.iso},${toCsvNumber(current.amount)},${toCsvNumber(current.byn)}`;
+
+    const rows = readLog();
+    rows.push(row);
+    writeLog(rows);
+  }
+
+  function downloadCsv() {
+    const rows = readLog();
+    const header = 'date,currency,amount,amount_byn';
+    const content = [header, ...rows].join('\n');
+
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nbrb_log_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function clearLog() {
+    localStorage.removeItem(STORAGE_KEY);
+    renderLog([]);
+  }
+
+  // ---- init ----
+  (async function main() {
+    try {
+      initDateToday();
+      await loadCurrencies();
+      renderLog(readLog());
+      await recalc();
+
+      elDate.addEventListener('change', recalc);
+      elCur.addEventListener('change', recalc);
+      elAmt.addEventListener('input', () => {
+        clearTimeout(window.__t);
+        window.__t = setTimeout(recalc, 250);
+      });
+
+      saveBtn.addEventListener('click', appendCurrentToLog);
+      downloadBtn.addEventListener('click', downloadCsv);
+      clearBtn.addEventListener('click', clearLog);
+    } catch (e) {
+      setError(e?.message || 'Не удалось запустить приложение');
+    }
+  })();
+</script>
+</body>
+</html>
